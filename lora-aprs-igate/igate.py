@@ -78,7 +78,7 @@ try:
     rfm9x.signal_bandwidth = config['LORA'].getfloat('Bandwidth', fallback=125000)
     rfm9x.spreading_factor = config['LORA'].getint('SpreadingFactor', fallback=12)
     rfm9x.coding_rate = config['LORA'].getint('CodingRate', fallback=5)
-    rfm9x.enable_crc = False  # TODO?
+    rfm9x.enable_crc = True
 
     # connect to APRS iGate
     AIS.connect(blocking=True)
@@ -90,9 +90,9 @@ try:
     AIS.sendall(gwpos)  # TODO: announce regularly
 
     while True:
-        packet = rfm9x.receive(timeout=60, keep_listening=True, with_header=False)
+        packet = rfm9x.receive(timeout=5, keep_listening=True, with_header=True)
         if packet:
-            logger.info('Received (raw bytes): {0}'.format(packet))
+            logger.info('Received (raw bytes): %s with RSSI: %d', packet, rfm9x.rssi)
 
 except Exception as e:
     logger.exception(e)

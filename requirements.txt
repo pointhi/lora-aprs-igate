@@ -1,2 +1,4 @@
+adafruit-blinka
 adafruit-circuitpython-rfm9x
+#adafruit-circuitpython-tinylora
 aprslib
