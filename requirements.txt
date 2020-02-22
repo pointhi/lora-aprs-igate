@@ -1,2 +1,2 @@
 adafruit-circuitpython-rfm9x
-aprs
+aprslib

@@ -19,6 +19,11 @@ import configparser
 import logging
 import time
 
+import digitalio
+import board
+import busio
+import adafruit_rfm9x
+
 from aprslib import IS as APRS_IS
 from aprslib.packets.position import PositionReport
 
@@ -53,6 +58,7 @@ def create_gateway_announcement():
     gwpos.symbol_table = 'R'
     return gwpos
 
+
 # connect to APRS iGate
 connect_kwargs = {
     'passwd': config['APRS']['Passcode'],
@@ -62,16 +68,31 @@ connect_kwargs = {
 
 AIS = APRS_IS(config['APRS']['Callsign'], **connect_kwargs)
 try:
+    # Configure LoRA model pins
+    CS = digitalio.DigitalInOut(getattr(board, config['LORA'].get("PinCS", "CE0")))
+    RESET = digitalio.DigitalInOut(getattr(board, config['LORA'].get("PinReset", "D25")))
+    spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
+
+    # Create LoRa modem connection and configure it
+    rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, config['LORA'].getfloat('Frequency', fallback=433.775))
+    rfm9x.signal_bandwidth = config['LORA'].getfloat('Bandwidth', fallback=125000)
+    rfm9x.spreading_factor = config['LORA'].getint('SpreadingFactor', fallback=12)
+    rfm9x.coding_rate = config['LORA'].getint('CodingRate', fallback=5)
+    rfm9x.enable_crc = False  # TODO?
+
+    # connect to APRS iGate
     AIS.connect(blocking=True)
 
     time.sleep(1)
 
     gwpos = create_gateway_announcement()
     logger.info('Announce Gateway: "%s"', gwpos)
-    AIS.sendall(gwpos)
+    AIS.sendall(gwpos)  # TODO: announce regularly
 
-    #while True:
-    #    time.sleep(10)
+    while True:
+        packet = rfm9x.receive(timeout=60, keep_listening=True, with_header=False)
+        if packet:
+            logger.info('Received (raw bytes): {0}'.format(packet))
 
 except Exception as e:
     logger.exception(e)
@@ -84,10 +105,7 @@ finally:
     exit(0)
 
 """
-import digitalio
-import board
-import busio
-import adafruit_rfm9x
+
 
 # QRG: 433,775 MHz BW: 125 SF 12 CR 4/5
 RADIO_FREQ_MHZ = 433.775
